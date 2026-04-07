@@ -40,44 +40,26 @@ jobs:
         if: steps.changed.outputs.no_files == 'true'
         run: echo "No source files to process. Skipping."
 
-      - name: Install Claude Code
-        if: steps.changed.outputs.no_files == 'false'
-        run: npm install -g @anthropic-ai/claude-code
-
       - name: Process knowledge with Claude Code
         if: steps.changed.outputs.no_files == 'false'
-        env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-        run: |
-          # 処理対象ファイルの内容を収集
-          CONTENT=""
-          for file in ${{ steps.changed.outputs.files }}; do
-            if [ -f "$file" ]; then
-              CONTENT="$CONTENT\n\n--- $file ---\n$(cat "$file")"
-            fi
-          done
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          prompt: |
+            あなたはチームナレッジ管理AIです。
+            CLAUDE.mdのルールに従って以下の処理を行ってください。
 
-          # Claude Codeに処理を依頼
-          claude -p "
-          あなたはチームナレッジ管理AIです。
-          CLAUDE.mdのルールに従って以下の処理を行ってください。
+            ## 処理対象
+            source/ディレクトリに以下のファイルが追加されました：
+            ${{ steps.changed.outputs.files }}
 
-          ## 処理対象
-          source/ディレクトリに以下のファイルが追加されました：
-          ${{ steps.changed.outputs.files }}
-
-          内容：
-          $CONTENT
-
-          ## 指示
-          1. CLAUDE.mdを読んでナレッジ管理のルールを確認してください
-          2. 各ファイルの内容を理解し、適切なディレクトリに配置・統合してください
-          3. 既存ファイルとの重複や関連を確認してください
-          4. 処理が完了したらsource/内の処理済みファイルを削除してください
-          5. 変更をコミットしてください（直接mainブランチに。PRは不要）
-
-          重要：source/.gitkeepは削除しないでください。
-          "
+            ## 指示
+            1. CLAUDE.mdを読んでナレッジ管理のルールを確認してください
+            2. source/内の対象ファイルを読んでください
+            3. 既存のナレッジファイルを確認し、関連や重複がないか調べてください
+            4. 各ファイルの内容を理解し、適切なディレクトリに配置・統合してください
+            5. 処理が完了したらsource/内の処理済みファイルを削除してください
+            6. source/.gitkeepは絶対に削除しないでください
 
       - name: Create PR with changes
         if: steps.changed.outputs.no_files == 'false'
